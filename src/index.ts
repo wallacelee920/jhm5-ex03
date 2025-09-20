@@ -13,7 +13,7 @@
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('<!DOCTYPE html>
+		return new Response('<!DOCTYPE html>'
 		<html lang="zh-TW">
 		<head>
 			<meta charset="UTF-8">
