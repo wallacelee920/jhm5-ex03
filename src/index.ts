@@ -290,12 +290,12 @@ export default {
 						// 處理贏家或平局
 						if (roundWon) {
 							gameActive = false;
-							statusDisplay.textContent = `玩家 ${currentPlayer} 獲勝！`;
+							statusDisplay.textContent = '玩家 ${currentPlayer} 獲勝！';
 							updateScore(currentPlayer);
 							
 							// 標記贏家連線
 							winningLine.forEach(index => {
-								document.querySelector(`[data-cell-index="${index}"]`).classList.add('winner');
+								document.querySelector('[data-cell-index="${index}"]').classList.add('winner');
 							});
 							
 							return;
