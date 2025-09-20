@@ -335,7 +335,7 @@ export default {
 						currentPlayer = 'X';
 						gameBoard = ['', '', '', '', '', '', '', '', ''];
 						gameActive = true;
-						statusDisplay.textContent = `玩家 ${currentPlayer} 的回合`;
+						statusDisplay.textContent = '玩家 ${currentPlayer} 的回合';
 						
 						cells.forEach(cell => {
 							cell.textContent = '';
