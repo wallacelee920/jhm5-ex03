@@ -367,6 +367,6 @@ export default {
 				});
 			</script>
 		</body>
-		</html>`)
+		</html>`
 	},
 } satisfies ExportedHandler<Env>;
