@@ -18,130 +18,192 @@ export default {
 		<head>
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title>井字遊戲 | Cloudflare Workers部署</title>
+			<title>黑金過三關 | 單人/雙人模式</title>
 			<style>
+				:root {
+					--gold-primary: #FFD700;
+					--gold-secondary: #D4AF37;
+					--gold-light: #FFEA80;
+					--dark-bg: #0A0A0A;
+					--dark-card: #1A1A1A;
+					--dark-border: #333333;
+				}
+				
 				* {
-					box-sizing: border-box;
 					margin: 0;
 					padding: 0;
-					font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+					box-sizing: border-box;
+					font-family: 'Microsoft JhengHei', 'Arial', sans-serif;
 				}
 				
 				body {
-					background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+					background-color: var(--dark-bg);
+					color: white;
 					min-height: 100vh;
 					display: flex;
 					flex-direction: column;
 					align-items: center;
 					justify-content: center;
 					padding: 20px;
-					color: #333;
+					background-image: 
+						radial-gradient(circle at 10% 20%, rgba(255, 215, 0, 0.05) 0%, transparent 20%),
+						radial-gradient(circle at 90% 80%, rgba(255, 215, 0, 0.05) 0%, transparent 20%);
 				}
 				
 				.container {
-					background-color: rgba(255, 255, 255, 0.9);
-					border-radius: 15px;
-					box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 					width: 100%;
 					max-width: 500px;
-					padding: 30px;
-					text-align: center;
+					background-color: var(--dark-card);
+					border-radius: 15px;
+					padding: 25px;
+					box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+					border: 1px solid var(--gold-secondary);
+					position: relative;
+					overflow: hidden;
+				}
+				
+				.container::before {
+					content: "";
+					position: absolute;
+					top: 0;
+					left: 0;
+					right: 0;
+					height: 5px;
+					background: linear-gradient(90deg, 
+						transparent, 
+						var(--gold-primary), 
+						transparent);
 				}
 				
 				h1 {
-					color: #4a4a4a;
+					text-align: center;
+					color: var(--gold-primary);
 					margin-bottom: 20px;
 					font-size: 2.2rem;
+					text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+					letter-spacing: 2px;
 				}
 				
-				.status {
-					font-size: 1.2rem;
-					margin: 15px 0;
-					padding: 10px;
+				.game-header {
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+					margin-bottom: 20px;
+					padding-bottom: 15px;
+					border-bottom: 1px solid var(--dark-border);
+				}
+				
+				.mode-selector {
+					display: flex;
+					background-color: rgba(0, 0, 0, 0.3);
 					border-radius: 8px;
-					background-color: #f8f9fa;
-					font-weight: 500;
+					overflow: hidden;
+					border: 1px solid var(--dark-border);
 				}
 				
-				.board {
+				.mode-btn {
+					padding: 8px 16px;
+					background: none;
+					border: none;
+					color: #888;
+					cursor: pointer;
+					font-weight: bold;
+					transition: all 0.3s;
+				}
+				
+				.mode-btn.active {
+					background-color: var(--gold-primary);
+					color: black;
+				}
+				
+				.player-info {
+					display: flex;
+					flex-direction: column;
+					gap: 10px;
+					margin-bottom: 20px;
+				}
+				
+				.player-input {
+					display: flex;
+					align-items: center;
+					gap: 10px;
+				}
+				
+				.player-input label {
+					font-weight: bold;
+					color: var(--gold-light);
+					min-width: 80px;
+				}
+				
+				.player-input input {
+					flex: 1;
+					padding: 8px 12px;
+					background-color: rgba(0, 0, 0, 0.3);
+					border: 1px solid var(--dark-border);
+					border-radius: 5px;
+					color: white;
+				}
+				
+				.player-input input:focus {
+					outline: none;
+					border-color: var(--gold-primary);
+				}
+				
+				.game-status {
+					text-align: center;
+					font-size: 1.2rem;
+					margin-bottom: 20px;
+					padding: 10px;
+					background-color: rgba(0, 0, 0, 0.3);
+					border-radius: 8px;
+					border: 1px solid var(--dark-border);
+					color: var(--gold-light);
+				}
+				
+				.game-board {
 					display: grid;
 					grid-template-columns: repeat(3, 1fr);
-					grid-gap: 10px;
-					margin: 20px auto;
-					max-width: 300px;
+					grid-template-rows: repeat(3, 1fr);
+					gap: 8px;
+					margin-bottom: 20px;
+					aspect-ratio: 1/1;
+					background-color: rgba(0, 0, 0, 0.3);
+					padding: 10px;
+					border-radius: 10px;
+					border: 1px solid var(--dark-border);
 				}
 				
 				.cell {
-					width: 100%;
-					height: 80px;
-					background-color: #f0f0f0;
-					border-radius: 8px;
+					background-color: rgba(0, 0, 0, 0.5);
+					border: 2px solid var(--dark-border);
+					border-radius: 5px;
 					display: flex;
 					align-items: center;
 					justify-content: center;
 					font-size: 2.5rem;
 					font-weight: bold;
 					cursor: pointer;
-					transition: all 0.3s ease;
-					box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+					transition: all 0.2s;
+					aspect-ratio: 1/1;
 				}
 				
 				.cell:hover {
-					background-color: #e0e0e0;
-					transform: translateY(-2px);
+					border-color: var(--gold-primary);
+					transform: scale(1.03);
 				}
 				
 				.cell.x {
-					color: #ff6b6b;
+					color: var(--gold-primary);
+					text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
 				}
 				
 				.cell.o {
-					color: #4ecdc4;
+					color: var(--gold-light);
+					text-shadow: 0 0 10px rgba(255, 234, 128, 0.5);
 				}
 				
-				.controls {
-					margin-top: 20px;
-				}
-				
-				button {
-					background-color: #667eea;
-					color: white;
-					border: none;
-					padding: 12px 24px;
-					border-radius: 8px;
-					cursor: pointer;
-					font-size: 1rem;
-					font-weight: 600;
-					transition: all 0.3s ease;
-					margin: 5px;
-				}
-				
-				button:hover {
-					background-color: #5a67d8;
-					transform: translateY(-2px);
-				}
-				
-				.score-board {
-					display: flex;
-					justify-content: space-around;
-					margin-top: 20px;
-					background-color: #f8f9fa;
-					padding: 15px;
-					border-radius: 8px;
-				}
-				
-				.score {
-					text-align: center;
-				}
-				
-				.score-value {
-					font-size: 1.8rem;
-					font-weight: bold;
-					color: #667eea;
-				}
-				
-				.winner {
-					background-color: #ffd700;
+				.winning-cell {
+					background-color: rgba(255, 215, 0, 0.1);
 					animation: pulse 1s infinite;
 				}
 				
@@ -151,122 +213,342 @@ export default {
 					100% { transform: scale(1); }
 				}
 				
-				.footer {
-					margin-top: 30px;
-					color: white;
-					text-align: center;
-					font-size: 0.9rem;
+				.game-controls {
+					display: flex;
+					justify-content: center;
+					gap: 15px;
+					margin-bottom: 20px;
 				}
 				
-				.footer a {
-					color: #ffd700;
-					text-decoration: none;
+				.btn {
+					padding: 10px 20px;
+					background-color: rgba(0, 0, 0, 0.3);
+					border: 1px solid var(--dark-border);
+					color: var(--gold-light);
+					border-radius: 5px;
+					cursor: pointer;
+					font-weight: bold;
+					transition: all 0.3s;
+				}
+				
+				.btn:hover {
+					background-color: var(--gold-primary);
+					color: black;
+					border-color: var(--gold-primary);
+				}
+				
+				.stats {
+					display: grid;
+					grid-template-columns: 1fr 1fr;
+					gap: 15px;
+				}
+				
+				.stats-box {
+					background-color: rgba(0, 0, 0, 0.3);
+					padding: 15px;
+					border-radius: 8px;
+					border: 1px solid var(--dark-border);
+				}
+				
+				.stats-title {
+					color: var(--gold-primary);
+					font-weight: bold;
+					margin-bottom: 10px;
+					text-align: center;
+					border-bottom: 1px solid var(--dark-border);
+					padding-bottom: 5px;
+				}
+				
+				.stats-item {
+					display: flex;
+					justify-content: space-between;
+					margin-bottom: 8px;
+				}
+				
+				.stats-label {
+					color: #CCC;
+				}
+				
+				.stats-value {
+					color: var(--gold-light);
+					font-weight: bold;
 				}
 				
 				@media (max-width: 500px) {
 					.container {
-						padding: 20px;
+						padding: 15px;
 					}
 					
 					h1 {
 						font-size: 1.8rem;
 					}
 					
-					.cell {
-						height: 70px;
-						font-size: 2rem;
+					.game-header {
+						flex-direction: column;
+						gap: 15px;
+					}
+					
+					.stats {
+						grid-template-columns: 1fr;
 					}
 				}
 			</style>
 		</head>
 		<body>
 			<div class="container">
-				<h1>井字遊戲 (Tic-Tac-Toe)</h1>
+				<h1>黑金過三關</h1>
 				
-				<div class="status" id="status">玩家 X 的回合</div>
-				
-				<div class="board" id="board">
-					<div class="cell" data-cell-index="0"></div>
-					<div class="cell" data-cell-index="1"></div>
-					<div class="cell" data-cell-index="2"></div>
-					<div class="cell" data-cell-index="3"></div>
-					<div class="cell" data-cell-index="4"></div>
-					<div class="cell" data-cell-index="5"></div>
-					<div class="cell" data-cell-index="6"></div>
-					<div class="cell" data-cell-index="7"></div>
-					<div class="cell" data-cell-index="8"></div>
-				</div>
-				
-				<div class="score-board">
-					<div class="score">
-						<div>玩家 X</div>
-						<div class="score-value" id="score-x">0</div>
-					</div>
-					<div class="score">
-						<div>平局</div>
-						<div class="score-value" id="score-draw">0</div>
-					</div>
-					<div class="score">
-						<div>玩家 O</div>
-						<div class="score-value" id="score-o">0</div>
+				<div class="game-header">
+					<div class="mode-selector">
+						<button id="single-player-btn" class="mode-btn active">單人模式</button>
+						<button id="two-player-btn" class="mode-btn">雙人模式</button>
 					</div>
 				</div>
 				
-				<div class="controls">
-					<button id="restart-btn">重新開始</button>
-					<button id="reset-score-btn">重置分數</button>
+				<div class="player-info">
+					<div class="player-input">
+						<label for="player1">玩家 1 (X):</label>
+						<input type="text" id="player1" value="玩家一">
+					</div>
+					<div class="player-input" id="player2-input">
+						<label for="player2">玩家 2 (O):</label>
+						<input type="text" id="player2" value="玩家二">
+					</div>
 				</div>
-			</div>
-			
-			<div class="footer">
-				<p>部署於 Cloudflare Workers | <a href="https://developers.cloudflare.com/workers/" target="_blank">了解更多</a></p>
+				
+				<div class="game-status" id="status">輪到: 玩家一 (X)</div>
+				
+				<div class="game-board" id="board">
+					<div class="cell" data-index="0"></div>
+					<div class="cell" data-index="1"></div>
+					<div class="cell" data-index="2"></div>
+					<div class="cell" data-index="3"></div>
+					<div class="cell" data-index="4"></div>
+					<div class="cell" data-index="5"></div>
+					<div class="cell" data-index="6"></div>
+					<div class="cell" data-index="7"></div>
+					<div class="cell" data-index="8"></div>
+				</div>
+				
+				<div class="game-controls">
+					<button id="reset" class="btn">重新開始</button>
+					<button id="reset-stats" class="btn">重置統計</button>
+				</div>
+				
+				<div class="stats">
+					<div class="stats-box">
+						<div class="stats-title">比賽統計</div>
+						<div class="stats-item">
+							<span class="stats-label">玩家1 (X) 勝利:</span>
+							<span class="stats-value" id="player1-wins">0</span>
+						</div>
+						<div class="stats-item">
+							<span class="stats-label">玩家2 (O) 勝利:</span>
+							<span class="stats-value" id="player2-wins">0</span>
+						</div>
+						<div class="stats-item">
+							<span class="stats-label">平局:</span>
+							<span class="stats-value" id="ties">0</span>
+						</div>
+						<div class="stats-item">
+							<span class="stats-label">總比賽場數:</span>
+							<span class="stats-value" id="total-games">0</span>
+						</div>
+					</div>
+					
+					<div class="stats-box">
+						<div class="stats-title">勝率統計</div>
+						<div class="stats-item">
+							<span class="stats-label">玩家1 (X) 勝率:</span>
+							<span class="stats-value" id="player1-rate">0%</span>
+						</div>
+						<div class="stats-item">
+							<span class="stats-label">玩家2 (O) 勝率:</span>
+							<span class="stats-value" id="player2-rate">0%</span>
+						</div>
+						<div class="stats-item">
+							<span class="stats-label">平局率:</span>
+							<span class="stats-value" id="tie-rate">0%</span>
+						</div>
+					</div>
+				</div>
 			</div>
 		
 			<script>
 				document.addEventListener('DOMContentLoaded', () => {
-					// 遊戲狀態變數
+					// DOM 元素
+					const board = document.getElementById('board');
+					const cells = document.querySelectorAll('.cell');
+					const status = document.getElementById('status');
+					const resetButton = document.getElementById('reset');
+					const resetStatsButton = document.getElementById('reset-stats');
+					const player1Input = document.getElementById('player1');
+					const player2Input = document.getElementById('player2');
+					const player2InputContainer = document.getElementById('player2-input');
+					const singlePlayerBtn = document.getElementById('single-player-btn');
+					const twoPlayerBtn = document.getElementById('two-player-btn');
+					
+					// 統計元素
+					const player1WinsEl = document.getElementById('player1-wins');
+					const player2WinsEl = document.getElementById('player2-wins');
+					const tiesEl = document.getElementById('ties');
+					const totalGamesEl = document.getElementById('total-games');
+					const player1RateEl = document.getElementById('player1-rate');
+					const player2RateEl = document.getElementById('player2-rate');
+					const tieRateEl = document.getElementById('tie-rate');
+					
+					// 遊戲狀態
 					let currentPlayer = 'X';
-					let gameBoard = ['', '', '', '', '', '', '', '', ''];
+					let gameState = ['', '', '', '', '', '', '', '', ''];
 					let gameActive = true;
-					let scores = {
-						X: 0,
-						O: 0,
-						draw: 0
+					let isSinglePlayerMode = true;
+					let player1Name = '玩家一';
+					let player2Name = '玩家二';
+					
+					// 統計數據
+					let stats = {
+						player1Wins: 0,
+						player2Wins: 0,
+						ties: 0,
+						totalGames: 0
 					};
 					
-					// 獲取DOM元素
-					const statusDisplay = document.getElementById('status');
-					const cells = document.querySelectorAll('.cell');
-					const restartBtn = document.getElementById('restart-btn');
-					const resetScoreBtn = document.getElementById('reset-score-btn');
-					const scoreX = document.getElementById('score-x');
-					const scoreO = document.getElementById('score-o');
-					const scoreDraw = document.getElementById('score-draw');
-					
-					// 贏家組合
+					// 勝利條件
 					const winningConditions = [
-						[0, 1, 2], [3, 4, 5], [6, 7, 8], // 橫向
-						[0, 3, 6], [1, 4, 7], [2, 5, 8], // 縱向
+						[0, 1, 2], [3, 4, 5], [6, 7, 8], // 橫排
+						[0, 3, 6], [1, 4, 7], [2, 5, 8], // 直排
 						[0, 4, 8], [2, 4, 6]             // 對角線
 					];
 					
-					// 處理玩家點擊格子
-					function handleCellClick(e) {
-						const cell = e.target;
-						const cellIndex = parseInt(cell.getAttribute('data-cell-index'));
+					// 初始化遊戲
+					function initGame() {
+						// 從本地存儲加載統計數據
+						loadStats();
 						
-						// 檢查格子是否已被佔用或遊戲已結束
-						if (gameBoard[cellIndex] !== '' || !gameActive) {
+						// 設置事件監聽器
+						cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+						resetButton.addEventListener('click', resetGame);
+						resetStatsButton.addEventListener('click', resetStats);
+						singlePlayerBtn.addEventListener('click', () => setGameMode(true));
+						twoPlayerBtn.addEventListener('click', () => setGameMode(false));
+						player1Input.addEventListener('input', updatePlayerNames);
+						player2Input.addEventListener('input', updatePlayerNames);
+						
+						// 更新玩家名稱
+						updatePlayerNames();
+					}
+					
+					// 設置遊戲模式 (單人/雙人)
+					function setGameMode(singlePlayer) {
+						isSinglePlayerMode = singlePlayer;
+						singlePlayerBtn.classList.toggle('active', singlePlayer);
+						twoPlayerBtn.classList.toggle('active', !singlePlayer);
+						
+						if (singlePlayer) {
+							player2Input.value = "電腦";
+							player2Input.disabled = true;
+						} else {
+							player2Input.value = "玩家二";
+							player2Input.disabled = false;
+						}
+						
+						updatePlayerNames();
+						resetGame();
+					}
+					
+					// 更新玩家名稱
+					function updatePlayerNames() {
+						player1Name = player1Input.value.trim() || '玩家一';
+						player2Name = player2Input.value.trim() || (isSinglePlayerMode ? '電腦' : '玩家二');
+						
+						if (gameActive) {
+							status.textContent = `輪到: ${currentPlayer === 'X' ? player1Name : player2Name} (${currentPlayer})`;
+						}
+						updateStats();
+					}
+					
+					// 處理格子點擊
+					function handleCellClick(e) {
+						const clickedCell = e.target;
+						const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
+						
+						if (gameState[clickedCellIndex] !== '' || !gameActive) {
 							return;
 						}
 						
-						// 更新遊戲狀態
-						gameBoard[cellIndex] = currentPlayer;
-						cell.textContent = currentPlayer;
-						cell.classList.add(currentPlayer.toLowerCase());
+						// 玩家移動
+						makeMove(clickedCellIndex, currentPlayer);
 						
 						// 檢查遊戲結果
 						checkResult();
+						
+						// 如果是單人模式且遊戲繼續，讓電腦移動
+						if (isSinglePlayerMode && gameActive && currentPlayer === 'O') {
+							setTimeout(computerMove, 500);
+						}
+					}
+					
+					// 執行移動
+					function makeMove(index, player) {
+						gameState[index] = player;
+						cells[index].textContent = player;
+						cells[index].classList.add(player === 'X' ? 'x' : 'o');
+						
+						// 切換玩家
+						currentPlayer = player === 'X' ? 'O' : 'X';
+						status.textContent = `輪到: ${currentPlayer === 'X' ? player1Name : player2Name} (${currentPlayer})`;
+					}
+					
+					// 電腦移動
+					function computerMove() {
+						if (!gameActive) return;
+						
+						// 簡單AI邏輯: 1.嘗試贏 2.阻止玩家贏 3.隨機移動
+						let move = findWinningMove('O') || findWinningMove('X') || findRandomMove();
+						
+						if (move !== null) {
+							makeMove(move, 'O');
+							checkResult();
+						}
+					}
+					
+					// 尋找可以贏的移動
+					function findWinningMove(player) {
+						for (let i = 0; i < winningConditions.length; i++) {
+							const [a, b, c] = winningConditions[i];
+							const values = [gameState[a], gameState[b], gameState[c]];
+							
+							// 計算空格數和當前玩家的標記數
+							let emptyCount = 0;
+							let playerCount = 0;
+							let emptyIndex = null;
+							
+							for (let j = 0; j < values.length; j++) {
+								if (values[j] === '') {
+									emptyCount++;
+									emptyIndex = [a, b, c][j];
+								} else if (values[j] === player) {
+									playerCount++;
+								}
+							}
+							
+							// 如果有兩個標記和一個空格，返回空格位置
+							if (playerCount === 2 && emptyCount === 1) {
+								return emptyIndex;
+							}
+						}
+						return null;
+					}
+					
+					// 尋找隨機移動
+					function findRandomMove() {
+						const emptyCells = [];
+						for (let i = 0; i < gameState.length; i++) {
+							if (gameState[i] === '') {
+								emptyCells.push(i);
+							}
+						}
+						return emptyCells.length > 0 ? emptyCells[Math.floor(Math.random() * emptyCells.length)] : null;
 					}
 					
 					// 檢查遊戲結果
@@ -274,96 +556,118 @@ export default {
 						let roundWon = false;
 						let winningLine = null;
 						
-						// 檢查是否有贏家
+						// 檢查是否有人贏
 						for (let i = 0; i < winningConditions.length; i++) {
 							const [a, b, c] = winningConditions[i];
-							if (gameBoard[a] === '' || gameBoard[b] === '' || gameBoard[c] === '') {
+							
+							if (gameState[a] === '' || gameState[b] === '' || gameState[c] === '') {
 								continue;
 							}
-							if (gameBoard[a] === gameBoard[b] && gameBoard[b] === gameBoard[c]) {
+							
+							if (gameState[a] === gameState[b] && gameState[b] === gameState[c]) {
 								roundWon = true;
-								winningLine = winningConditions[i];
+								winningLine = [a, b, c];
 								break;
 							}
 						}
 						
-						// 處理贏家或平局
 						if (roundWon) {
-							gameActive = false;
-							statusDisplay.textContent = `玩家 ${currentPlayer} 獲勝！`;
-							updateScore(currentPlayer);
+							// 有人贏了
+							const winnerSymbol = currentPlayer === 'X' ? 'O' : 'X';
+							const winnerName = winnerSymbol === 'X' ? player1Name : player2Name;
 							
-							// 標記贏家連線
+							status.textContent = `${winnerName} (${winnerSymbol}) 獲勝！`;
+							gameActive = false;
+							
+							// 標記獲勝的格子
 							winningLine.forEach(index => {
-								document.querySelector(`[data-cell-index="${index}"]`).classList.add('winner');
+								cells[index].classList.add('winning-cell');
 							});
 							
-							return;
-						}
-						
-						// 檢查平局
-						let roundDraw = !gameBoard.includes('');
-						if (roundDraw) {
-							gameActive = false;
-							statusDisplay.textContent = '平局！';
-							updateScore('draw');
-							return;
-						}
-						
-						// 切換玩家
-						currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-						statusDisplay.textContent = `玩家 ${currentPlayer} 的回合`;
-					}
-					
-					// 更新分數
-					function updateScore(winner) {
-						if (winner === 'draw') {
-							scores.draw++;
-							scoreDraw.textContent = scores.draw;
-						} else {
-							scores[winner]++;
-							if (winner === 'X') {
-								scoreX.textContent = scores.X;
+							// 更新統計
+							if (winnerSymbol === 'X') {
+								stats.player1Wins++;
 							} else {
-								scoreO.textContent = scores.O;
+								stats.player2Wins++;
 							}
+							stats.totalGames++;
+							updateStats();
+							saveStats();
+							
+							return;
+						}
+						
+						// 檢查是否平手
+						if (!gameState.includes('')) {
+							status.textContent = '比賽平手！';
+							gameActive = false;
+							
+							// 更新統計
+							stats.ties++;
+							stats.totalGames++;
+							updateStats();
+							saveStats();
 						}
 					}
 					
-					// 重新開始遊戲
-					function restartGame() {
+					// 重置遊戲
+					function resetGame() {
 						currentPlayer = 'X';
-						gameBoard = ['', '', '', '', '', '', '', '', ''];
+						gameState = ['', '', '', '', '', '', '', '', ''];
 						gameActive = true;
-						statusDisplay.textContent = `玩家 ${currentPlayer} 的回合`;
+						status.textContent = `輪到: ${player1Name} (X)`;
 						
 						cells.forEach(cell => {
 							cell.textContent = '';
-							cell.classList.remove('x', 'o', 'winner');
+							cell.classList.remove('x', 'o', 'winning-cell');
 						});
 					}
 					
-					// 重置分數
-					function resetScore() {
-						scores.X = 0;
-						scores.O = 0;
-						scores.draw = 0;
-						scoreX.textContent = '0';
-						scoreO.textContent = '0';
-						scoreDraw.textContent = '0';
-						restartGame();
+					// 更新統計顯示
+					function updateStats() {
+						player1WinsEl.textContent = stats.player1Wins;
+						player2WinsEl.textContent = stats.player2Wins;
+						tiesEl.textContent = stats.ties;
+						totalGamesEl.textContent = stats.totalGames;
+						
+						// 計算勝率
+						const total = stats.totalGames || 1; // 避免除以零
+						player1RateEl.textContent = `${Math.round((stats.player1Wins / total) * 100)}%`;
+						player2RateEl.textContent = `${Math.round((stats.player2Wins / total) * 100)}%`;
+						tieRateEl.textContent = `${Math.round((stats.ties / total) * 100)}%`;
 					}
 					
-					// 添加事件監聽器
-					cells.forEach(cell => {
-						cell.addEventListener('click', handleCellClick);
-					});
+					// 重置統計
+					function resetStats() {
+						if (confirm('確定要重置所有統計數據嗎？')) {
+							stats = {
+								player1Wins: 0,
+								player2Wins: 0,
+								ties: 0,
+								totalGames: 0
+							};
+							updateStats();
+							localStorage.removeItem('goldenGameStats');
+						}
+					}
 					
-					restartBtn.addEventListener('click', restartGame);
-					resetScoreBtn.addEventListener('click', resetScore);
+					// 保存統計到本地存儲
+					function saveStats() {
+						localStorage.setItem('goldenGameStats', JSON.stringify(stats));
+					}
+					
+					// 從本地存儲加載統計
+					function loadStats() {
+						const savedStats = localStorage.getItem('goldenGameStats');
+						if (savedStats) {
+							stats = JSON.parse(savedStats);
+							updateStats();
+						}
+					}
 					
 					// 初始化遊戲
-					restartGame();
+					initGame();
+					setGameMode(true); // 默認單人模式
 				});
 			</script>
 		</body>
