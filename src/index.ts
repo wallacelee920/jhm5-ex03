@@ -631,7 +631,7 @@ export default {
 						currentPlayer = 'X';
 						gameState = ['', '', '', '', '', '', '', '', ''];
 						gameActive = true;
-						status.textContent = `輪到: ${player1Name} (X)`;
+						status.textContent = 輪到: ${player1Name} (X)`;
 						
 						cells.forEach(cell => {
 							cell.textContent = '';
