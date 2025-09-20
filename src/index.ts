@@ -13,7 +13,7 @@
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
-		return new Response(`
+		const newLocal = `
 		<!DOCTYPE html>
 		<html lang="zh-TW">
 		<head>
@@ -237,12 +237,6 @@ export default {
 						[0, 3, 6], [1, 4, 7], [2, 5, 8], // 縱向
 						[0, 4, 8], [2, 4, 6]             // 對角線
 					];
-					
-					// 訊息
-					const winMessage = () => `恭喜！你贏了！`;
-					const drawMessage = () => `遊戲平局！`;
-					const currentPlayerTurn = () => `輪到你下了 (${currentPlayer})`;
-					const aiThinking = () => `電腦思考中...`;
 					
 					// 初始化遊戲
 					statusDisplay.innerHTML = currentPlayerTurn();
