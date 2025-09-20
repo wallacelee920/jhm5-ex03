@@ -12,7 +12,8 @@
  */
 
 export default {
-	async fetch(request, env, ctx): Promise<Response> {
+	async fetch(request, env, ctx): Promise<Response> {`
+		return new Response(<!DOCTYPE html>
 		<html lang="zh-TW">
 		<head>
 			<meta charset="UTF-8">
@@ -638,7 +639,7 @@ export default {
 						});
 					}
 					
-					// 更新統計顯示
+					
 					function updateStats() {
 						player1WinsEl.textContent = stats.player1Wins;
 						player2WinsEl.textContent = stats.player2Wins;
@@ -686,6 +687,6 @@ export default {
 				});
 			</script>
 		</body>
-		</html>');
+		</html>`);
 	},
 } satisfies ExportedHandler<Env>;
