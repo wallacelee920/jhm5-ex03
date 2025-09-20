@@ -312,7 +312,7 @@ export default {
 						
 						// 切換玩家
 						currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-						statusDisplay.textContent = `玩家 ${currentPlayer} 的回合`;
+						statusDisplay.textContent = '玩家 ${currentPlayer} 的回合';
 					}
 					
 					// 更新分數
