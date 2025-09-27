@@ -1,8 +1,0 @@
-name = "jhm5-ex03"
-compatibility_date = "2023-10-01"
-compatibility_flags = ["nodejs_compat"]
-
-# KV 命名空间配置
-[[kv_namespaces]]
-binding = "MY_KV"
-id = "92d088a6-3d5a-4f0d-a1c0-bf765aad5a05"
