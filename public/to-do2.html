@@ -3,204 +3,424 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>待辦事項 (單檔案版)</title>
+    <title>待辦事項 (Cloudflare KV版)</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 40px 20px;
             display: flex;
             justify-content: center;
         }
         
         .container {
             background: white;
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 15px;
+            padding: 30px;
             width: 100%;
-            max-width: 500px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            max-width: 600px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
         
         h1 {
             text-align: center;
             color: #333;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         
         .input-section {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
         
         #task-input {
             flex: 1;
-            padding: 10px;
+            padding: 15px;
             border: 2px solid #ddd;
-            border-radius: 5px;
+            border-radius: 8px;
             font-size: 16px;
+        }
+        
+        #task-input:focus {
+            outline: none;
+            border-color: #667eea;
         }
         
         #add-btn {
             background: #667eea;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 15px 25px;
+            border-radius: 8px;
             cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        
+        #add-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .filter-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
         }
         
         .task-item {
             display: flex;
             align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.2s;
+        }
+        
+        .task-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .task-item.completed {
+            border-left-color: #4CAF50;
+            opacity: 0.7;
         }
         
         .task-checkbox {
-            margin-right: 10px;
+            margin-right: 15px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
         }
         
         .task-text {
             flex: 1;
+            font-size: 16px;
         }
         
         .completed .task-text {
             text-decoration: line-through;
-            color: #888;
+            color: #666;
+        }
+        
+        .task-actions {
+            display: flex;
+            gap: 5px;
         }
         
         .delete-btn {
-            background: #ff6b6b;
+            background: #ff4757;
             color: white;
             border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
+            padding: 8px 12px;
+            border-radius: 5px;
             cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .edit-btn {
+            background: #ffa502;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
         }
         
         .stats {
             display: flex;
             justify-content: space-around;
-            margin-top: 20px;
-            padding: 10px;
+            margin-top: 25px;
+            padding: 15px;
             background: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .error {
+            background: #ffe6e6;
+            color: #d63031;
+            padding: 10px;
             border-radius: 5px;
+            margin-bottom: 15px;
+            text-align: center;
+            display: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📝 我的待辦事項</h1>
+        <h1>📝 待辦事項清單 (Cloudflare KV)</h1>
+        
+        <div class="error" id="error-message"></div>
         
         <div class="input-section">
-            <input type="text" id="task-input" placeholder="輸入新任務...">
-            <button id="add-btn">添加</button>
+            <input type="text" id="task-input" placeholder="輸入新的待辦事項...">
+            <button id="add-btn">添加任務</button>
         </div>
         
-        <div id="task-list"></div>
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">全部任務</button>
+            <button class="filter-btn" data-filter="pending">待完成</button>
+            <button class="filter-btn" data-filter="completed">已完成</button>
+        </div>
+        
+        <div id="task-list">
+            <div class="loading">載入中...</div>
+        </div>
         
         <div class="stats">
-            <div>總數: <span id="total">0</span></div>
-            <div>已完成: <span id="completed">0</span></div>
-            <div>待完成: <span id="pending">0</span></div>
+            <div>
+                <div class="stat-number" id="total-tasks">0</div>
+                <div>總任務數</div>
+            </div>
+            <div>
+                <div class="stat-number" id="completed-tasks">0</div>
+                <div>已完成</div>
+            </div>
+            <div>
+                <div class="stat-number" id="pending-tasks">0</div>
+                <div>待完成</div>
+            </div>
         </div>
     </div>
 
     <script>
-        // 使用 localStorage 簡單存儲（單機版）
-        function getTasks() {
-            const tasks = localStorage.getItem('todo-tasks');
-            return tasks ? JSON.parse(tasks) : [];
+        const API_BASE = 'https://jhm5-ex03.lizhongyan744.workers.dev';
+        let currentFilter = 'all';
+        let tasks = [];
+
+        // 顯示錯誤訊息
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            setTimeout(() => errorEl.style.display = 'none', 5000);
         }
-        
-        function saveTasks(tasks) {
-            localStorage.setItem('todo-tasks', JSON.stringify(tasks));
+
+        // API 請求函數
+        async function apiRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(API_BASE + endpoint, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) throw new Error('請求失敗');
+                return await response.json();
+            } catch (error) {
+                showError('網路錯誤: ' + error.message);
+                throw error;
+            }
         }
-        
-        function addTask(text) {
-            const tasks = getTasks();
-            const newTask = {
-                id: Date.now(),
-                text: text,
-                completed: false,
-                time: new Date().toLocaleString()
-            };
-            tasks.push(newTask);
-            saveTasks(tasks);
-            renderTasks();
-        }
-        
-        function toggleTask(id) {
-            const tasks = getTasks();
-            const task = tasks.find(t => t.id === id);
-            if (task) {
-                task.completed = !task.completed;
-                saveTasks(tasks);
+
+        // 載入任務
+        async function loadTasks() {
+            try {
+                const data = await apiRequest('/api/tasks');
+                tasks = data.tasks || [];
+                renderTasks();
+                updateStats();
+            } catch (error) {
+                tasks = [];
                 renderTasks();
             }
         }
-        
-        function deleteTask(id) {
-            const tasks = getTasks();
-            const newTasks = tasks.filter(t => t.id !== id);
-            saveTasks(newTasks);
-            renderTasks();
-        }
-        
-        function renderTasks() {
-            const tasks = getTasks();
-            const taskList = document.getElementById('task-list');
+
+        // 添加任務
+        async function addTask() {
+            const input = document.getElementById('task-input');
+            const text = input.value.trim();
             
-            if (tasks.length === 0) {
-                taskList.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">還沒有任務，添加一個吧！</div>';
-            } else {
-                taskList.innerHTML = tasks.map(task => `
-                    <div class="task-item ${task.completed ? 'completed' : ''}">
-                        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
-                               onchange="toggleTask(${task.id})">
-                        <span class="task-text">${task.text}</span>
-                        <button class="delete-btn" onclick="deleteTask(${task.id})">刪除</button>
-                    </div>
-                `).join('');
+            if (!text) {
+                showError('請輸入任務內容');
+                return;
             }
+
+            try {
+                await apiRequest('/api/tasks', {
+                    method: 'POST',
+                    body: JSON.stringify({ text, completed: false })
+                });
+                
+                input.value = '';
+                await loadTasks();
+            } catch (error) {
+                // 錯誤已處理
+            }
+        }
+
+        // 切換任務狀態
+        async function toggleTask(id) {
+            try {
+                const task = tasks.find(t => t.id === id);
+                if (!task) return;
+
+                await apiRequest(`/api/tasks/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        ...task,
+                        completed: !task.completed
+                    })
+                });
+                
+                await loadTasks();
+            } catch (error) {
+                // 錯誤已處理
+            }
+        }
+
+        // 刪除任務
+        async function deleteTask(id) {
+            if (!confirm('確定要刪除這個任務嗎？')) return;
             
-            // 更新統計
+            try {
+                await apiRequest(`/api/tasks/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                await loadTasks();
+            } catch (error) {
+                // 錯誤已處理
+            }
+        }
+
+        // 編輯任務
+        async function editTask(id, oldText) {
+            const newText = prompt('編輯任務:', oldText);
+            if (newText === null || newText.trim() === '') return;
+
+            try {
+                const task = tasks.find(t => t.id === id);
+                if (!task) return;
+
+                await apiRequest(`/api/tasks/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        ...task,
+                        text: newText.trim()
+                    })
+                });
+                
+                await loadTasks();
+            } catch (error) {
+                // 錯誤已處理
+            }
+        }
+
+        // 渲染任務列表
+        function renderTasks() {
+            const taskList = document.getElementById('task-list');
+            let filteredTasks = tasks;
+
+            if (currentFilter === 'completed') {
+                filteredTasks = tasks.filter(t => t.completed);
+            } else if (currentFilter === 'pending') {
+                filteredTasks = tasks.filter(t => !t.completed);
+            }
+
+            if (filteredTasks.length === 0) {
+                taskList.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📝</div>
+                        <div>目前沒有${currentFilter !== 'all' ? (currentFilter === 'completed' ? '已完成' : '待完成') : ''}的任務</div>
+                    </div>
+                `;
+                return;
+            }
+
+            taskList.innerHTML = filteredTasks.map(task => `
+                <div class="task-item ${task.completed ? 'completed' : ''}">
+                    <input type="checkbox" class="task-checkbox" 
+                           ${task.completed ? 'checked' : ''}
+                           onchange="toggleTask('${task.id}')">
+                    <span class="task-text">${task.text}</span>
+                    <div class="task-actions">
+                        <button class="edit-btn" onclick="editTask('${task.id}', '${task.text.replace(/'/g, "\\'")}')">編輯</button>
+                        <button class="delete-btn" onclick="deleteTask('${task.id}')">刪除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 更新統計數據
+        function updateStats() {
             const total = tasks.length;
             const completed = tasks.filter(t => t.completed).length;
             const pending = total - completed;
-            
-            document.getElementById('total').textContent = total;
-            document.getElementById('completed').textContent = completed;
-            document.getElementById('pending').textContent = pending;
+
+            document.getElementById('total-tasks').textContent = total;
+            document.getElementById('completed-tasks').textContent = completed;
+            document.getElementById('pending-tasks').textContent = pending;
         }
-        
+
         // 初始化
-        document.getElementById('add-btn').addEventListener('click', function() {
-            const input = document.getElementById('task-input');
-            const text = input.value.trim();
-            if (text) {
-                addTask(text);
-                input.value = '';
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            // 事件監聽器
+            document.getElementById('add-btn').addEventListener('click', addTask);
+            document.getElementById('task-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') addTask();
+            });
+
+            // 篩選按鈕
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.dataset.filter;
+                    renderTasks();
+                });
+            });
+
+            // 載入任務
+            loadTasks();
         });
-        
-        document.getElementById('task-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('add-btn').click();
-            }
-        });
-        
-        // 頁面加載時渲染
-        renderTasks();
     </script>
 </body>
 </html>
