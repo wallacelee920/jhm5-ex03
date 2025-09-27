@@ -1,3 +1,156 @@
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    
+    // 設置 CORS 頭部
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+    
+    // 處理預檢請求
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        headers: corsHeaders,
+      });
+    }
+    
+    // API 路由
+    if (path.startsWith('/api/tasks')) {
+      return handleTasksAPI(request, env, path);
+    }
+    
+    // 靜態文件服務
+    if (path === '/to-do' || path === '/') {
+      return serveStaticFile('todo2.html', 'text/html');
+    }
+    
+    if (path === '/todo2.html') {
+      return serveStaticFile('todo2.html', 'text/html');
+    }
+    
+    return new Response('Not Found', { status: 404 });
+  },
+};
+
+// 處理任務 API
+async function handleTasksAPI(request, env, path) {
+  const kv = env.MY_KV;
+  
+  try {
+    // GET /api/tasks - 獲取所有任務
+    if (request.method === 'GET' && path === '/api/tasks') {
+      const tasksJson = await kv.get('tasks');
+      const tasks = tasksJson ? JSON.parse(tasksJson) : [];
+      
+      return new Response(JSON.stringify({ tasks }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+    
+    // POST /api/tasks - 創建新任務
+    if (request.method === 'POST' && path === '/api/tasks') {
+      const taskData = await request.json();
+      const tasksJson = await kv.get('tasks');
+      const tasks = tasksJson ? JSON.parse(tasksJson) : [];
+      
+      const newTask = {
+        id: Date.now().toString(),
+        text: taskData.text,
+        completed: taskData.completed || false,
+        timestamp: new Date().toISOString(),
+      };
+      
+      tasks.unshift(newTask);
+      await kv.put('tasks', JSON.stringify(tasks));
+      
+      return new Response(JSON.stringify({ success: true, task: newTask }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+    
+    // PUT /api/tasks/:id - 更新任務
+    if (request.method === 'PUT' && path.startsWith('/api/tasks/')) {
+      const taskId = path.split('/').pop();
+      const taskData = await request.json();
+      
+      const tasksJson = await kv.get('tasks');
+      const tasks = tasksJson ? JSON.parse(tasksJson) : [];
+      
+      const taskIndex = tasks.findIndex(task => task.id === taskId);
+      if (taskIndex === -1) {
+        return new Response(JSON.stringify({ error: 'Task not found' }), {
+          status: 404,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+      
+      tasks[taskIndex] = { ...tasks[taskIndex], ...taskData };
+      await kv.put('tasks', JSON.stringify(tasks));
+      
+      return new Response(JSON.stringify({ success: true, task: tasks[taskIndex] }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+    
+    // DELETE /api/tasks/:id - 刪除任務
+    if (request.method === 'DELETE' && path.startsWith('/api/tasks/')) {
+      const taskId = path.split('/').pop();
+      
+      const tasksJson = await kv.get('tasks');
+      const tasks = tasksJson ? JSON.parse(tasksJson) : [];
+      
+      const filteredTasks = tasks.filter(task => task.id !== taskId);
+      
+      if (tasks.length === filteredTasks.length) {
+        return new Response(JSON.stringify({ error: 'Task not found' }), {
+          status: 404,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+      
+      await kv.put('tasks', JSON.stringify(filteredTasks));
+      
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+    
+    return new Response('Not Found', { status: 404 });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  }
+}
+
+// 提供靜態文件
+async function serveStaticFile(filename, contentType) {
+  const htmlContent = `
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -499,69 +652,4 @@
                 let filteredTasks = tasks;
                 if (currentFilter === 'completed') {
                     filteredTasks = tasks.filter(task => task.completed);
-                } else if (currentFilter === 'pending') {
-                    filteredTasks = tasks.filter(task => !task.completed);
-                }
-                
-                // 清空任務列表
-                taskList.innerHTML = '';
-                
-                if (filteredTasks.length === 0) {
-                    const emptyState = document.createElement('div');
-                    emptyState.className = 'empty-state';
-                    emptyState.innerHTML = `
-                        <i class="fas fa-clipboard-list"></i>
-                        <p>目前沒有${currentFilter !== 'all' ? currentFilter === 'completed' ? '已完成' : '待完成' : ''}的任務</p>
-                    `;
-                    taskList.appendChild(emptyState);
-                    return;
-                }
-                
-                // 添加任務到列表
-                filteredTasks.forEach(task => {
-                    const li = document.createElement('li');
-                    li.className = `task-item ${task.completed ? 'completed' : ''}`;
-                    li.dataset.id = task.id;
-                    
-                    li.innerHTML = `
-                        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
-                        <span class="task-text">${task.text}</span>
-                        <div class="task-actions">
-                            <button class="edit-btn"><i class="fas fa-edit"></i></button>
-                            <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
-                        </div>
-                    `;
-                    
-                    taskList.appendChild(li);
-                    
-                    // 添加事件監聽器
-                    const checkbox = li.querySelector('.task-checkbox');
-                    const editBtn = li.querySelector('.edit-btn');
-                    const deleteBtn = li.querySelector('.delete-btn');
-                    
-                    checkbox.addEventListener('change', () => toggleCompleted(task.id));
-                    deleteBtn.addEventListener('click', () => deleteTask(task.id));
-                    editBtn.addEventListener('click', () => {
-                        const newText = prompt('編輯任務:', task.text);
-                        if (newText !== null) editTask(task.id, newText);
-                    });
-                });
-            }
-            
-            // 更新統計數據
-            function updateStats() {
-                const total = tasks.length;
-                const completed = tasks.filter(task => task.completed).length;
-                const pending = total - completed;
-                
-                totalTasksEl.textContent = total;
-                completedTasksEl.textContent = completed;
-                pendingTasksEl.textContent = pending;
-            }
-            
-            // 初始化應用
-            init();
-        });
-    </script>
-</body>
-</html>
+                } else if
