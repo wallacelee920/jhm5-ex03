@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>待辦事項應用程式</title>
+    <title>待辦事項應用程式 - Cloudflare KV 版本</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -248,6 +248,7 @@
             transform: translateX(150%);
             transition: transform 0.3s ease;
             z-index: 1000;
+            max-width: 300px;
         }
         
         .notification.show {
@@ -262,9 +263,30 @@
             background: #38c172;
         }
         
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .loading i {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #4a6fc7;
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fa-spinner {
+            animation: spin 1s linear infinite;
         }
         
         @media (max-width: 480px) {
@@ -325,7 +347,10 @@
         
         <div class="tasks-section">
             <ul class="task-list" id="task-list">
-                <!-- 任務將動態添加到這裡 -->
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>正在加載任務...</p>
+                </div>
             </ul>
         </div>
     </div>
@@ -333,69 +358,65 @@
     <div class="notification" id="notification"></div>
 
     <script>
-        // Cloudflare KV 存储模拟类
+        // Cloudflare KV 存储类 - Workers 版本
         class KVStorage {
             constructor() {
-                this.baseURL = 'https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/storage/kv/namespaces/{NAMESPACE_ID}';
-                this.headers = {
-                    'Authorization': 'Bearer {API_TOKEN}',
-                    'Content-Type': 'application/json'
-                };
-                // 本地缓存，用于在没有网络连接时提供基本功能
+                // 本地缓存作为后备
                 this.localCache = JSON.parse(localStorage.getItem('tasks')) || [];
+                this.useLocalStorage = false;
             }
             
-            // 获取所有任务
+            // 获取所有任务 - 通过 Worker 端点
             async getTasks() {
                 try {
-                    // 在实际应用中，这里会调用 Cloudflare KV API
-                    // const response = await fetch(`${this.baseURL}/values/tasks`, {
-                    //     method: 'GET',
-                    //     headers: this.headers
-                    // });
+                    // 通过 Worker 端点获取数据
+                    const response = await fetch('/api/todos', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
                     
-                    // if (response.ok) {
-                    //     const data = await response.json();
-                    //     return data.result || [];
-                    // }
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.useLocalStorage = false;
+                        return data.tasks || [];
+                    }
                     
-                    // 模拟 API 响应延迟
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                    
-                    // 返回本地缓存作为模拟
-                    return this.localCache;
+                    throw new Error('Worker 端点获取失败');
                 } catch (error) {
-                    console.error('获取任务失败:', error);
-                    this.showNotification('获取任务失败，使用本地缓存', 'error');
+                    console.warn('Worker 端点获取失败，使用本地存储:', error);
+                    this.useLocalStorage = true;
                     return this.localCache;
                 }
             }
             
-            // 保存所有任务
+            // 保存所有任务 - 通过 Worker 端点
             async saveTasks(tasks) {
+                // 更新本地缓存
+                this.localCache = tasks;
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                
                 try {
-                    // 更新本地缓存
-                    this.localCache = tasks;
-                    localStorage.setItem('tasks', JSON.stringify(tasks));
+                    // 通过 Worker 端点保存数据
+                    const response = await fetch('/api/todos', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ tasks })
+                    });
                     
-                    // 在实际应用中，这里会调用 Cloudflare KV API
-                    // const response = await fetch(`${this.baseURL}/values/tasks`, {
-                    //     method: 'PUT',
-                    //     headers: this.headers,
-                    //     body: JSON.stringify({ value: JSON.stringify(tasks) })
-                    // });
+                    if (response.ok) {
+                        this.useLocalStorage = false;
+                        this.showNotification('任务已保存到云端', 'success');
+                        return true;
+                    }
                     
-                    // if (!response.ok) {
-                    //     throw new Error('保存失败');
-                    // }
-                    
-                    // 模拟 API 响应延迟
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                    
-                    this.showNotification('任务已保存到云端', 'success');
-                    return true;
+                    throw new Error('Worker 端点保存失败');
                 } catch (error) {
-                    console.error('保存任务失败:', error);
+                    console.warn('Worker 端点保存失败，使用本地存储:', error);
+                    this.useLocalStorage = true;
                     this.showNotification('保存到云端失败，已保存到本地', 'error');
                     return false;
                 }
