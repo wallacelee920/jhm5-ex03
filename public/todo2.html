@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,305 +21,63 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-tasks"></i> 待辦事項清單</h1>
-            <div class="stats">
-                <div class="stat-item">
-                    <div class="stat-number" id="total-tasks">0</div>
-                    <div class="stat-label">總任務</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="completed-tasks">0</div>
-                    <div class="stat-label">已完成</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="pending-tasks">0</div>
-                    <div class="stat-label">待完成</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="input-section">
-            <input type="text" id="task-input" placeholder="輸入新的待辦事項...">
-            <button id="add-btn"><i class="fas fa-plus"></i></button>
-        </div>
-        
-        <div class="filters">
-            <button class="filter-btn active" data-filter="all">全部</button>
-            <button class="filter-btn" data-filter="pending">待完成</button>
-            <button class="filter-btn" data-filter="completed">已完成</button>
-        </div>
-        
-        <div class="tasks-section">
-            <ul class="task-list" id="task-list">
-                <div class="loading">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>正在加載任務...</p>
-                </div>
-            </ul>
-        </div>
+        <h1>Todo List (Cloudflare KV)</h1>
+        <form id="todo-form" autocomplete="off">
+            <input type="text" id="todo-input" placeholder="Add a new todo..." required />
+            <button type="submit">Add</button>
+        </form>
+        <ul id="todo-list"></ul>
     </div>
-
-    <div class="notification" id="notification"></div>
-
     <script>
-        // Cloudflare KV 存储类 - Workers 版本
-        class KVStorage {
-            constructor() {
-                // 本地缓存作为后备
-                this.localCache = JSON.parse(localStorage.getItem('tasks')) || [];
-                this.useLocalStorage = false;
+        async function fetchTodos() {
+            const res = await fetch('/api/todos');
+            if (res.ok) {
+                return await res.json();
             }
-            
-            // 获取所有任务 - 通过 Worker 端点
-            async getTasks() {
-                try {
-                    // 通过 Worker 端点获取数据
-                    const response = await fetch('/api/todos', {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        this.useLocalStorage = false;
-                        return data.tasks || [];
-                    }
-                    
-                    throw new Error('Worker 端点获取失败');
-                } catch (error) {
-                    console.warn('Worker 端点获取失败，使用本地存储:', error);
-                    this.useLocalStorage = true;
-                    return this.localCache;
-                }
-            }
-            
-            // 保存所有任务 - 通过 Worker 端点
-            async saveTasks(tasks) {
-                // 更新本地缓存
-                this.localCache = tasks;
-                localStorage.setItem('tasks', JSON.stringify(tasks));
-                
-                try {
-                    // 通过 Worker 端点保存数据
-                    const response = await fetch('/api/todos', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ tasks })
-                    });
-                    
-                    if (response.ok) {
-                        this.useLocalStorage = false;
-                        this.showNotification('任务已保存到云端', 'success');
-                        return true;
-                    }
-                    
-                    throw new Error('Worker 端点保存失败');
-                } catch (error) {
-                    console.warn('Worker 端点保存失败，使用本地存储:', error);
-                    this.useLocalStorage = true;
-                    this.showNotification('保存到云端失败，已保存到本地', 'error');
-                    return false;
-                }
-            }
-            
-            // 显示通知
-            showNotification(message, type = '') {
-                const notification = document.getElementById('notification');
-                notification.textContent = message;
-                notification.className = 'notification';
-                
-                if (type) {
-                    notification.classList.add(type);
-                }
-                
-                notification.classList.add('show');
-                
-                setTimeout(() => {
-                    notification.classList.remove('show');
-                }, 3000);
-            }
+            return [];
         }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // 獲取DOM元素
-            const taskInput = document.getElementById('task-input');
-            const addBtn = document.getElementById('add-btn');
-            const taskList = document.getElementById('task-list');
-            const filterBtns = document.querySelectorAll('.filter-btn');
-            const totalTasksEl = document.getElementById('total-tasks');
-            const completedTasksEl = document.getElementById('completed-tasks');
-            const pendingTasksEl = document.getElementById('pending-tasks');
-            
-            // 初始化 KV 存储
-            const kvStorage = new KVStorage();
-            
-            let tasks = [];
-            let currentFilter = 'all';
-            
-            // 初始化應用
-            async function init() {
-                // 从 KV 存储加载任务
-                tasks = await kvStorage.getTasks();
-                
-                renderTasks();
-                updateStats();
-                
-                // 添加事件監聽器
-                addBtn.addEventListener('click', addTask);
-                taskInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') addTask();
-                });
-                
-                filterBtns.forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        filterBtns.forEach(b => b.classList.remove('active'));
-                        this.classList.add('active');
-                        currentFilter = this.dataset.filter;
-                        renderTasks();
-                    });
-                });
-            }
-            
-            // 添加新任務
-            async function addTask() {
-                const text = taskInput.value.trim();
-                if (text === '') return;
-                
-                const newTask = {
-                    id: Date.now(),
-                    text: text,
-                    completed: false,
-                    timestamp: new Date().toISOString()
+        async function addTodo(text) {
+            await fetch('/api/todos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+        }
+        async function deleteTodo(id) {
+            await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+        }
+        function render(todos) {
+            const list = document.getElementById('todo-list');
+            list.innerHTML = '';
+            todos.forEach(todo => {
+                const li = document.createElement('li');
+                li.textContent = todo.text;
+                const del = document.createElement('span');
+                del.textContent = '✕';
+                del.className = 'delete';
+                del.onclick = async function() {
+                    await deleteTodo(todo.id);
+                    load();
                 };
-                
-                tasks.unshift(newTask);
-                await saveTasks();
-                renderTasks();
-                updateStats();
-                
-                taskInput.value = '';
-                taskInput.focus();
+                li.appendChild(del);
+                list.appendChild(li);
+            });
+        }
+        async function load() {
+            const todos = await fetchTodos();
+            render(todos);
+        }
+        document.getElementById('todo-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('todo-input');
+            const text = input.value.trim();
+            if (text) {
+                await addTodo(text);
+                input.value = '';
+                load();
             }
-            
-            // 刪除任務
-            async function deleteTask(id) {
-                tasks = tasks.filter(task => task.id !== id);
-                await saveTasks();
-                renderTasks();
-                updateStats();
-            }
-            
-            // 切換完成狀態
-            async function toggleCompleted(id) {
-                tasks = tasks.map(task => {
-                    if (task.id === id) {
-                        return {...task, completed: !task.completed};
-                    }
-                    return task;
-                });
-                
-                await saveTasks();
-                renderTasks();
-                updateStats();
-            }
-            
-            // 編輯任務
-            async function editTask(id, newText) {
-                if (newText.trim() === '') return;
-                
-                tasks = tasks.map(task => {
-                    if (task.id === id) {
-                        return {...task, text: newText};
-                    }
-                    return task;
-                });
-                
-                await saveTasks();
-                renderTasks();
-            }
-            
-            // 保存任務到 KV 存储
-            async function saveTasks() {
-                await kvStorage.saveTasks(tasks);
-            }
-            
-            // 渲染任務列表
-            function renderTasks() {
-                // 根據當前篩選條件過濾任務
-                let filteredTasks = tasks;
-                if (currentFilter === 'completed') {
-                    filteredTasks = tasks.filter(task => task.completed);
-                } else if (currentFilter === 'pending') {
-                    filteredTasks = tasks.filter(task => !task.completed);
-                }
-                
-                // 清空任務列表
-                taskList.innerHTML = '';
-                
-                if (filteredTasks.length === 0) {
-                    const emptyState = document.createElement('div');
-                    emptyState.className = 'empty-state';
-                    emptyState.innerHTML = `
-                        <i class="fas fa-clipboard-list"></i>
-                        <p>目前沒有${currentFilter !== 'all' ? currentFilter === 'completed' ? '已完成' : '待完成' : ''}的任務</p>
-                    `;
-                    taskList.appendChild(emptyState);
-                    return;
-                }
-                
-                // 添加任務到列表
-                filteredTasks.forEach(task => {
-                    const li = document.createElement('li');
-                    li.className = `task-item ${task.completed ? 'completed' : ''}`;
-                    li.dataset.id = task.id;
-                    
-                    li.innerHTML = `
-                        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
-                        <span class="task-text">${task.text}</span>
-                        <div class="task-actions">
-                            <button class="edit-btn"><i class="fas fa-edit"></i></button>
-                            <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
-                        </div>
-                    `;
-                    
-                    taskList.appendChild(li);
-                    
-                    // 添加事件監聽器
-                    const checkbox = li.querySelector('.task-checkbox');
-                    const editBtn = li.querySelector('.edit-btn');
-                    const deleteBtn = li.querySelector('.delete-btn');
-                    const taskText = li.querySelector('.task-text');
-                    
-                    checkbox.addEventListener('change', () => toggleCompleted(task.id));
-                    
-                    deleteBtn.addEventListener('click', () => deleteTask(task.id));
-                    
-                    editBtn.addEventListener('click', () => {
-                        const newText = prompt('編輯任務:', task.text);
-                        if (newText !== null) editTask(task.id, newText);
-                    });
-                });
-            }
-            
-            // 更新統計數據
-            function updateStats() {
-                const total = tasks.length;
-                const completed = tasks.filter(task => task.completed).length;
-                const pending = total - completed;
-                
-                totalTasksEl.textContent = total;
-                completedTasksEl.textContent = completed;
-                pendingTasksEl.textContent = pending;
-            }
-            
-            // 初始化應用
-            init();
         });
+        load();
     </script>
 </body>
 </html>
